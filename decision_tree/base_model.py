@@ -1,7 +1,6 @@
 from decision_tree_v2 import *
 import pandas as pd
 # 用 kaggle 上的 titanic 数据集做实验，实现 base_model, 目前没有实现缺失值处理，所以将有缺失值的列都去掉
-# base model
 
 df = pd.read_csv('./data/train.csv')
 
