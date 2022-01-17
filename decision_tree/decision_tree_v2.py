@@ -109,7 +109,7 @@ class DecisionTree(object):
         best_feature, best_value, best_score, best_partitions, best_is_continuous = 999, 999, 999, None, False
         # 有列号取的是列号, 没有列号取的是序号, 从 0 开始
         for feature in data.columns[:len(data.columns) - 1]:
-            is_continuous = type_of_target(data[feature]) == 'continuous'
+            is_continuous = type_of_target(data.loc[data[feature].notna(), feature]) == 'continuous'
             # 得到该 feature 的所有值
             feature_vals = data[feature].unique()
             for feature_val in feature_vals:
@@ -136,8 +136,8 @@ class DecisionTree(object):
 
             # 有缺失值, 按照 xgboost 的方式进行处理，将在该属性缺失的值放入哪个分支更好就放入哪个分支
             if (len(left) + len(right) < len(data)):
-                left_with_null = pd.concat([left, data.loc[data[feature].isna()]], axis=1)
-                right_with_null = pd.concat([left, data.loc[data[feature].isna()]], axis=1)
+                left_with_null = pd.concat([left, data.loc[data[feature].isna()]])
+                right_with_null = pd.concat([right, data.loc[data[feature].isna()]])
                 left_partitions = {'left': left_with_null, 'right': right}
                 right_partitions = {'left': left, 'right': right_with_null}
                 if self.gini_index(left_partitions) < self.gini_index(right_partitions):
