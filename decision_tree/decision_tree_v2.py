@@ -6,7 +6,11 @@ from sklearn.utils.multiclass import type_of_target
 # reference 基础理论: 《统计学习方法》
 # 树模型的构建: https://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
 # 类的实现: https://github.com/han1057578619/MachineLearning_Zhouzhihua_ProblemSets/
-# 缺失值的处理(训练及测试中都可能出现): https://blog.csdn.net/u012328159/article/details/79413610
+# 缺失值的处理: https://stackoverflow.com/questions/37617390/xgboost-handling-of-missing-values-for-split-candidate-search
+# sklearn 中实现 cart 方法时，没有堆缺失值进行处理，而 xgboost 算法默认堆缺失值进行了处理。
+# 现在借用了 xgboost 中处理连续缺失值的思路实现 Cart 算法，也就是尝试将 nan 分别放到左右子树，哪边gini 系数更小就选择哪边
+# 对于离散缺失值，算法中采用 A = a, A != a 这样分类，null 被划入了 A != a 中
+# 在 predict 的过程中，也可能有新的连续属性出现缺失值，可以选择概率更大的一边，这边没有实现，只是简单放入右子树
 
 
 class Node(object):
@@ -129,10 +133,23 @@ class DecisionTree(object):
         if is_continuous:
             left = data.loc[data[feature] < feature_val]
             right = data.loc[data[feature] >= feature_val]
+
+            # 有缺失值, 按照 xgboost 的方式进行处理，将在该属性缺失的值放入哪个分支更好就放入哪个分支
+            if (len(left) + len(right) < len(data)):
+                left_with_null = pd.concat([left, data.loc[data[feature].isna()]], axis=1)
+                right_with_null = pd.concat([left, data.loc[data[feature].isna()]], axis=1)
+                left_partitions = {'left': left_with_null, 'right': right}
+                right_partitions = {'left': left, 'right': right_with_null}
+                if self.gini_index(left_partitions) < self.gini_index(right_partitions):
+                    return left_partitions
+                else:
+                    return right_partitions
         # 离散型变量
         else:
             left = data.loc[data[feature] == feature_val]
             right = data.loc[data[feature] != feature_val]
+
+
         return {'left': left, 'right': right}
 
     def gini_index(self, partitions):
