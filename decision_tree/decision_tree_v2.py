@@ -213,8 +213,8 @@ class DecisionTree(object):
             fo.write('{} -> {} ;\n'.format(index // 2, index))
 
 
-    def to_dot_file(self,):
-        fo = open("test.dot", "w")
+    def to_dot_file(self, file_name):
+        fo = open(file_name, "w")
 
         fo.write('digraph Tree{')
         fo.write('node [shape=box, style="filled", color="black"] ;')
