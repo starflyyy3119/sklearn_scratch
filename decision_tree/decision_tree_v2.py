@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import graphviz
 from sklearn.utils.multiclass import type_of_target
 
 
@@ -187,6 +188,12 @@ class DecisionTree(object):
             print('%s[%s]' % (node.depth * ' ', node.leaf_val))
 
     def print_tree_plus(self, node=None, index=1, fo=None):
+        """
+        按照 dot 文件的格式输出树，便于使用 graphviz 画图
+        :param node: 当前节点
+        :param index: 当前节点的编号
+        :param fo: 文件流
+        """
         if node is None:
             node = self.root
 
@@ -214,6 +221,10 @@ class DecisionTree(object):
 
 
     def to_dot_file(self, file_path):
+        """
+        产生格式化的 dot 文件
+        :param file_path: 输出 dot 文件的路径
+        """
         fo = open(file_path, "w")
 
         fo.write('digraph Tree{')
@@ -273,4 +284,6 @@ if __name__ == '__main__':
     avg_acc = cross_validation_score(tree, dataset)
     print('The average accuracy of the model is %.2f' % avg_acc)
 
-    tree.fit(dataset).to_dot_file()
+    tree.fit(dataset).to_dot_file("./dot_file/test.dot")
+
+
