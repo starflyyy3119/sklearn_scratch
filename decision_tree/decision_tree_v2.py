@@ -15,7 +15,7 @@ from sklearn.utils.multiclass import type_of_target
 
 class Node(object):
     def __init__(self, feature=None, feature_val=None, partitions=None, depth=None,
-                 is_leaf=False, leaf_val=None, is_continuous=False):
+                 is_leaf=False, leaf_val=None, is_continuous=False, classes = None):
         # 非叶子节点
         self.left = None
         self.right = None
@@ -27,6 +27,7 @@ class Node(object):
         # 叶子节点
         self.is_leaf = is_leaf
         self.leaf_val = leaf_val
+        self.classes = classes
 
         # 当前节点的深度，共有
         self.depth = depth
@@ -57,7 +58,7 @@ class DecisionTree(object):
 
     def split(self, node):
         left, right, depth = node.partitions['left'], node.partitions['right'], node.depth
-        del node.partitions
+        # del node.partitions, 现在需要这个 partitions 用来打印左右子数的样本数目
 
         if len(left) == 0 or len(right) == 0:
             node.left = node.right = self.to_leaf(pd.concat([left, right]), depth + 1)
@@ -83,7 +84,8 @@ class DecisionTree(object):
         :param partition: 当前分到该节点的数据
         :return: 当前 partition 中数目最多的类别
         """
-        return Node(is_leaf=True, leaf_val=partition.iloc[:, -1].value_counts().index[0], depth=depth)
+        return Node(is_leaf=True, leaf_val=partition.iloc[:, -1].value_counts().index[0],
+                    depth=depth, classes=partition.iloc[:, -1].value_counts().to_dict())
 
     def get_node(self, data, depth):
         """
@@ -184,6 +186,43 @@ class DecisionTree(object):
         else:
             print('%s[%s]' % (node.depth * ' ', node.leaf_val))
 
+    def print_tree_plus(self, node=None, index=1, fo=None):
+        if node is None:
+            node = self.root
+
+        # 非叶子节点
+        if not node.is_leaf:
+            if node.is_continuous:
+                fo.write('{} [label=\"{} < {}\\npartitions = [{}, {}]\", fillcolor=\"#afd7f4\"] ;\n'.format(index, node.feature, node.feature_val,
+                                                             len(node.partitions['left']), len(node.partitions['right'])))
+
+            else:
+                fo.write('{} [label=\"{} = {}\\npartitions = [{}, {}]\", fillcolor=\"#e58139\"] ;\n'.format(index, node.feature, node.feature_val,
+                                                          len(node.partitions['left']), len(node.partitions['right'])))
+
+            # 非根节点
+            if index != 1:
+                fo.write('{} -> {} ;\n'.format(index // 2, index))
+
+            self.print_tree_plus(node.left, index * 2, fo)
+            self.print_tree_plus(node.right, index * 2 + 1, fo)
+
+        # 叶子节点
+        else:
+            fo.write('{} [label=\"class = {}\\nclasses={}\", fillcolor=\"#4ca6e8\"] ;\n'.format(index, node.leaf_val, node.classes))
+            fo.write('{} -> {} ;\n'.format(index // 2, index))
+
+
+    def to_dot_file(self,):
+        fo = open("test.dot", "w")
+
+        fo.write('digraph Tree{')
+        fo.write('node [shape=box, style="filled", color="black"] ;')
+        self.print_tree_plus(fo = fo)
+        fo.write('}')
+
+        fo.close()
+
     def __predict_row__(self, x, node=None):
         if node is None:
             node = self.root
@@ -230,6 +269,8 @@ def cross_validation_score(model, dataset, k_folds=5):
 if __name__ == '__main__':
     dataset = pd.read_csv('./data/data_banknote_authentication.csv')
     dataset.columns = ['X0', 'X1', 'X2', 'X3', 'y']
-    tree = DecisionTree(min_leaf_size=10, max_depth=5)
+    tree = DecisionTree(min_leaf_size=10, max_depth=3)
     avg_acc = cross_validation_score(tree, dataset)
     print('The average accuracy of the model is %.2f' % avg_acc)
+
+    tree.fit(dataset).to_dot_file()
