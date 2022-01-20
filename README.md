@@ -6,15 +6,19 @@
 - 利用 graphviz 实现了决策树的可视化，简略版和详细版(详细版可协助理解剪枝过程):
  
 *简略版未后剪枝*:
+
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_easy_not_prune.png)
 
 *简略版后剪枝*:
+
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_easy.png)
 
 *详细版未后剪枝*:
+
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_complex_not_prune.png)
 
 *详细版后剪枝*:
+
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_complex.png)
 
 
