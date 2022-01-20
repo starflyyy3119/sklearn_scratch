@@ -3,7 +3,7 @@
 ## Decision Tree
 - 实现了 [Cart 分类树生成算法](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/decision_tree_v2.py)
 - 实现了 [Cart 分类树后剪枝算法](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/tree_pruner.py)
-- 利用 graphviz 实现了决策树的可视化，简略版和详细版(详细版可协助理解剪枝过程):
+- 利用 graphviz 实现了决策树的可视化，简略版和详细版(详细版可协助理解剪枝过程, 详细符号表示见李航统计学习方法 P72):
  
 *简略版未后剪枝*:
 
