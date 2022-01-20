@@ -9,17 +9,52 @@
 
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_easy_not_prune.png)
 
+```python
+# train 是训练集，要求 y 必须在最后一列
+tree = DecisionTree(min_leaf_size=10, max_depth=3).fit(train)
+tree.__cal__()
+tree.to_dot_file('./dot_file/tree_easy_not_prune.dot', is_whole = False)
+(graph,) = pydot.graph_from_dot_file('./dot_file/tree_easy_not_prune.dot')
+graph.write_png('./fig/tree_easy_not_prune.png')
+```
+
+
 *简略版后剪枝*:
 
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_easy.png)
+
+```python
+# train 是训练集，要求 y 必须在最后一列
+tree = DecisionTree(min_leaf_size=10, max_depth=3, pruning="post_pruning").fit(train)
+tree.to_dot_file('./dot_file/tree_easy.dot', is_whole = False)
+(graph,) = pydot.graph_from_dot_file('./dot_file/tree_easy.dot')
+graph.write_png('./fig/tree_easy.png')
+```
 
 *详细版未后剪枝*:
 
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_complex_not_prune.png)
 
+```python
+# train 是训练集，要求 y 必须在最后一列
+tree = DecisionTree(min_leaf_size=10, max_depth=3).fit(train)
+tree.__cal__()
+tree.to_dot_file('./dot_file/tree_complex_not_prune.dot', is_whole = True)
+(graph,) = pydot.graph_from_dot_file('./dot_file/tree_complex_not_prune.dot')
+graph.write_png('./fig/tree_complex_not_prune.png')
+```
+
 *详细版后剪枝*:
 
 ![](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/fig/tree_complex.png)
+
+```python
+# train 是训练集，要求 y 必须在最后一列
+tree = DecisionTree(min_leaf_size=10, max_depth=3, pruning="post_pruning").fit(train)
+tree.to_dot_file('./dot_file/tree_complex.dot', is_whole = True)
+(graph,) = pydot.graph_from_dot_file('./dot_file/tree_complex.dot')
+graph.write_png('./fig/tree_complex.png')
+```
 
 
 - 加入了 [统计学习方法 P51 数据集](https://github.com/starflyyy3119/sklearn_scratch/blob/master/decision_tree/lihang.ipynb)
