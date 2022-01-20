@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
-import graphviz
 from sklearn.utils.multiclass import type_of_target
-
+from node import Node
+from tree_pruner import TreePruner
+import random
 
 # reference 基础理论: 《统计学习方法》
 # 树模型的构建: https://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
@@ -12,26 +13,6 @@ from sklearn.utils.multiclass import type_of_target
 # 现在借用了 xgboost 中处理连续缺失值的思路实现 Cart 算法，也就是尝试将 nan 分别放到左右子树，哪边gini 系数更小就选择哪边
 # 对于离散缺失值，算法中采用 A = a, A != a 这样分类，null 被划入了 A != a 中
 # 在 predict 的过程中，也可能有新的连续属性出现缺失值，可以选择概率更大的一边，这边没有实现，只是简单放入右子树
-
-
-class Node(object):
-    def __init__(self, feature=None, feature_val=None, partitions=None, depth=None,
-                 is_leaf=False, leaf_val=None, is_continuous=False, classes = None):
-        # 非叶子节点
-        self.left = None
-        self.right = None
-        self.feature = feature
-        self.feature_val = feature_val
-        self.partitions = partitions
-        self.is_continuous = is_continuous
-
-        # 叶子节点
-        self.is_leaf = is_leaf
-        self.leaf_val = leaf_val
-        self.classes = classes
-
-        # 当前节点的深度，共有
-        self.depth = depth
 
 
 class DecisionTree(object):
@@ -55,7 +36,14 @@ class DecisionTree(object):
     def fit(self, data):
         self.root = self.get_node(data, 1)
         self.split(self.root)
+
+        if self.pruning == "post_pruning":
+            pruner = TreePruner(self.root, data)
+            pruner.post_prune()
+            self.root = pruner.get_best_tree()
+
         return self
+
 
     def split(self, node):
         left, right, depth = node.partitions['left'], node.partitions['right'], node.depth
@@ -121,7 +109,8 @@ class DecisionTree(object):
                 if gini_val < best_score:
                     best_feature, best_value, best_score, best_partitions, best_is_continuous = \
                         feature, feature_val, gini_val, partitions, is_continuous
-        return Node(best_feature, best_value, best_partitions, depth, is_continuous=best_is_continuous)
+        return Node(best_feature, best_value, best_partitions, depth, is_continuous=best_is_continuous,
+                    classes=data.iloc[:, -1].value_counts().to_dict())
 
     def get_binary_partitions(self, feature, feature_val, data, is_continuous=False):
         """
@@ -200,12 +189,12 @@ class DecisionTree(object):
         # 非叶子节点
         if not node.is_leaf:
             if node.is_continuous:
-                fo.write('{} [label=\"{} < {}\\npartitions = [{}, {}]\", fillcolor=\"#afd7f4\"] ;\n'.format(index, node.feature, node.feature_val,
-                                                             len(node.partitions['left']), len(node.partitions['right'])))
+                fo.write('{} [label=\"{} < {}\\nclasses={}\\npartitions = [{}, {}]\", fillcolor=\"#afd7f4\"] ;\n'.format(index,
+                    node.feature, node.feature_val, node.classes, len(node.partitions['left']), len(node.partitions['right'])))
 
             else:
-                fo.write('{} [label=\"{} = {}\\npartitions = [{}, {}]\", fillcolor=\"#e58139\"] ;\n'.format(index, node.feature, node.feature_val,
-                                                          len(node.partitions['left']), len(node.partitions['right'])))
+                fo.write('{} [label=\"{} = {}\\nclasses={}\\npartitions = [{}, {}]\", fillcolor=\"#e58139\"] ;\n'.format(index,
+                    node.feature, node.feature_val, node.classes, len(node.partitions['left']), len(node.partitions['right'])))
 
             # 非根节点
             if index != 1:
@@ -219,8 +208,46 @@ class DecisionTree(object):
             fo.write('{} [label=\"class = {}\\nclasses={}\", fillcolor=\"#4ca6e8\"] ;\n'.format(index, node.leaf_val, node.classes))
             fo.write('{} -> {} ;\n'.format(index // 2, index))
 
+    def print_whole_tree(self, node=None, index=1, fo=None):
+        """
+        按照 dot 文件的格式输出剪枝后的树，便于使用 graphviz 画图
+        :param node: 当前节点
+        :param index: 当前节点的编号
+        :param fo: 文件流
+        """
+        if node is None:
+            node = self.root
 
-    def to_dot_file(self, file_path):
+        # 非叶子节点
+        if not node.is_leaf:
+            if node.is_continuous:
+                fo.write('{} [label=\"{} < {}\\nclasses={}\\npartitions = [{}, {}]\\ncost_as_leaf = {:.2}\\ncost_with_subtree = {:.2}\\nnleaves = {}\\nalpha = {:.2}\", '
+                         'fillcolor=\"#afd7f4\"] ;\n'.format(index, node.feature, node.feature_val,
+                         node.classes, len(node.partitions['left']), len(node.partitions['right']), node.cost_as_leaf,
+                         node.cost_with_subtree, node.nleaves,
+                                                             (node.cost_as_leaf - node.cost_with_subtree) / (node.nleaves - 1)))
+
+            else:
+                fo.write('{} [label=\"{} = {}\\nclasses={}\\npartitions = [{}, {}]\\ncost_as_leaf = {:.2}\\ncost_with_subtree = {:.2}\\nnleaves = {}\\nalpha = {:.2}\", '
+                         'fillcolor=\"#e58139\"] ;\n'.format(index, node.feature, node.feature_val,
+                         node.classes, len(node.partitions['left']), len(node.partitions['right']), node.cost_as_leaf,
+                        node.cost_with_subtree, node.nleaves,
+                                                             (node.cost_as_leaf - node.cost_with_subtree) / (node.nleaves - 1)))
+
+            # 非根节点
+            if index != 1:
+                fo.write('{} -> {} ;\n'.format(index // 2, index))
+
+            self.print_whole_tree(node.left, index * 2, fo)
+            self.print_whole_tree(node.right, index * 2 + 1, fo)
+
+        # 叶子节点
+        else:
+            fo.write('{} [label=\"class = {}\\nclasses={}\\ncost_as_leaf = {:.2}\\nnleaves = {}\", fillcolor=\"#4ca6e8\"] ;\n'.format(index,
+            node.leaf_val, node.classes, node.cost_as_leaf, node.nleaves))
+            fo.write('{} -> {} ;\n'.format(index // 2, index))
+
+    def to_dot_file(self, file_path, is_whole = False):
         """
         产生格式化的 dot 文件
         :param file_path: 输出 dot 文件的路径
@@ -229,7 +256,10 @@ class DecisionTree(object):
 
         fo.write('digraph Tree{')
         fo.write('node [shape=box, style="filled", color="black"] ;')
-        self.print_tree_plus(fo = fo)
+        if is_whole:
+            self.print_whole_tree(fo = fo)
+        else:
+            self.print_tree_plus(fo = fo)
         fo.write('}')
 
         fo.close()
@@ -259,6 +289,32 @@ class DecisionTree(object):
         return X.apply(lambda x: self.__predict_row__(x), axis=1)  # apply functions to each row
 
 
+    def __cal__(self, node = None):
+        if node is None:
+            node = self.root
+        if node.is_leaf:
+            node.cost_with_subtree = node.cost_as_leaf = self.__gini__(node.classes)
+            node.nleaves = 1
+        else:
+            # 采用左右根的二叉树遍历方式
+            self.__cal__(node.left)
+            self.__cal__(node.right)
+
+            node.nleaves = node.left.nleaves + node.right.nleaves
+            node.cost_as_leaf = self.__gini__(node.classes)
+
+            left, right = len(node.partitions['left']), len(node.partitions['right'])
+            node.cost_with_subtree = left / (left + right) * node.left.cost_with_subtree + \
+                                     right / (left + right) * node.right.cost_with_subtree
+
+
+    def __gini__(self, classes):
+        l = np.array([value for _, value in classes.items()])
+        p = l / np.sum(l)
+        return 1 - np.sum(p ** 2)
+
+
+
 def accuracy_metric(predicted, actual):
     return np.sum(predicted == actual) / len(actual) * 100
 
@@ -271,19 +327,33 @@ def cross_validation_score(model, dataset, k_folds=5):
         start, end = int(interval * i), int(min(interval * (i + 1), len(dataset) - 1))
         train = pd.concat([dataset.iloc[: start, :], dataset.iloc[end:, :]])
         test = dataset.iloc[start: end, :]
-        predicted = model.fit(train).predict(test.iloc[:, : len(test) - 1])
+        predicted = model.fit(train).predict(test)
         score = accuracy_metric(predicted, test.iloc[:, -1])
         accuracy.append(score)
     return sum(accuracy) / len(accuracy)
 
+def get_validation(data, prob = 0.2):
+    indexes = []
+    for i in range(len(data)):
+        random_number = random.random()
+        if random_number < prob:
+            indexes.append(i)
+    return data.iloc[indexes, :]
+
 # 测试案例
 if __name__ == '__main__':
-    dataset = pd.read_csv('./data/data_banknote_authentication.csv')
-    dataset.columns = ['X0', 'X1', 'X2', 'X3', 'y']
-    tree = DecisionTree(min_leaf_size=10, max_depth=3)
-    avg_acc = cross_validation_score(tree, dataset)
-    print('The average accuracy of the model is %.2f' % avg_acc)
+    # dataset = pd.read_csv('./data/data_banknote_authentication.csv')
+    # dataset.columns = ['X0', 'X1', 'X2', 'X3', 'y']
+    # tree = DecisionTree(min_leaf_size=10, max_depth=3)
+    # avg_acc = cross_validation_score(tree, dataset)
+    # print('The average accuracy of the model is %.2f' % avg_acc)
+    #
+    # tree.fit(dataset).to_dot_file("./dot_file/test.dot")
 
-    tree.fit(dataset).to_dot_file("./dot_file/test.dot")
+    dataset = pd.read_csv('./data/titanic_simple.csv')
+    tree = DecisionTree(min_leaf_size=10, max_depth=3, pruning = "post_pruning")
+    tree = tree.fit(dataset)
+    tree.__cal__()
+    tree.to_dot_file('./dot_file/my_tree.dot', is_whole = True)
 
 
